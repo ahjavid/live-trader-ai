@@ -1,0 +1,5 @@
+{
+  "name": "Live Trader AI",
+  "description": "A sleek and responsive dashboard to monitor and control a live trading bot. Start, stop, and view the status of trading positions in real-time.",
+  "requestFramePermissions": []
+}
