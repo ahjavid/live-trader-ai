@@ -43,8 +43,9 @@ const TradeHistoryTable: React.FC<TradeHistoryTableProps> = ({ trades }) => {
         <svg className="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-brand-text-secondary">No Trade History</h3>
-        <p className="mt-1 text-sm text-gray-500">No executed trades were found for this session.</p>
+        <h3 className="mt-2 text-sm font-medium text-brand-text-secondary">No Trade History Available</h3>
+        <p className="mt-1 text-sm text-gray-500">Trade history is not available in the current backend implementation.</p>
+        <p className="mt-1 text-sm text-gray-500">Check the Dashboard tab to see your current active positions.</p>
       </div>
     );
   }

@@ -37,9 +37,8 @@ export interface PortfolioSummary {
 }
 
 export interface ActivitySummary {
-  totalDecisionPoints: number;
-  reconfirmations: number;
-  tradesExecuted: number;
+  totalDecisionPoints: number; // Total trades opened
+  tradesExecuted: number; // Closed trades
 }
 
 export interface Trade {
@@ -134,10 +133,10 @@ export interface ApiStatusResponse {
   drawdown: number;
   win_rate: number;
   trade_count: number;
-  position_details: {
+  position_details?: {
     [symbol: string]: ApiPosition;
   };
-  activity_summary: ApiActivitySummary;
+  activity_summary?: ApiActivitySummary;
 }
 
 export interface ApiTrade {

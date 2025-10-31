@@ -21,10 +21,9 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({ summary }) => {
   return (
     <div>
       <h3 className="text-lg font-medium text-brand-text-secondary mb-3">Bot Activity</h3>
-      <dl className="grid grid-cols-3 gap-4">
-        <StatCard label="Decisions" value={summary.totalDecisionPoints.toLocaleString()} />
-        <StatCard label="Reconfirmations" value={summary.reconfirmations.toLocaleString()} />
-        <StatCard label="Trades Executed" value={summary.tradesExecuted.toLocaleString()} />
+      <dl className="grid grid-cols-2 gap-4">
+        <StatCard label="Total Trades" value={summary.totalDecisionPoints.toLocaleString()} />
+        <StatCard label="Closed Trades" value={summary.tradesExecuted.toLocaleString()} />
       </dl>
     </div>
   );

@@ -49,14 +49,16 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
 
   useEffect(() => {
-    // FIX: Allow fetching history/performance data even when stopped, if data from a previous session exists.
-    if (status !== 'STOPPED' || trades.length > 0 || performanceData) {
-      if (activeTab === 'history') {
-        fetchTradeHistory();
-      }
-      if (activeTab === 'performance') {
+    // Only fetch data when switching to a tab, and only if we don't already have recent data
+    if (activeTab === 'history' && trades.length === 0) {
+      fetchTradeHistory();
+    }
+    if (activeTab === 'performance' && !performanceData && status === 'LIVE') {
+      // Delay to avoid burst with main status polling
+      const timer = setTimeout(() => {
         fetchPerformanceMetrics();
-      }
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [activeTab, status, fetchTradeHistory, fetchPerformanceMetrics, trades.length, performanceData]);
 

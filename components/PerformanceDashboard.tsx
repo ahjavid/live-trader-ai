@@ -117,6 +117,7 @@ interface PerformanceDashboardProps {
 }
 
 const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ data }) => {
+  // Show actual metrics if available, otherwise show loading/empty state
   if (!data || !data.metrics) {
     return (
       <div className="text-center py-16">
@@ -125,8 +126,9 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ data }) => 
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 11V9a4 4 0 014-4h.01M15 11V9a4 4 0 00-4-4h-2" />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-brand-text-secondary">No Performance Data</h3>
-        <p className="mt-1 text-sm text-gray-500">Could not retrieve aggregate performance metrics.</p>
+        <h3 className="mt-2 text-sm font-medium text-brand-text-secondary">Loading Performance Data...</h3>
+        <p className="mt-1 text-sm text-gray-500">Performance metrics will display when available.</p>
+        <p className="mt-1 text-sm text-gray-500">Check the Dashboard tab to see your current portfolio.</p>
       </div>
     );
   }
@@ -134,7 +136,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ data }) => 
   const { metrics, trades } = data;
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-  const formatPercentage = (value: number) => new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  const formatPercentage = (value: number) => new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value / 100);
   const formatNumber = (value: number, digits = 2) => new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
   
   const returnColor = metrics.totalReturn >= 0 ? 'text-brand-success' : 'text-brand-danger';
@@ -144,7 +146,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ data }) => 
         <div className="bg-brand-surface rounded-lg shadow-xl ring-1 ring-white/10 p-4 h-96">
             <EquityCurveChart trades={trades} finalBalance={metrics.finalBalance} />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <StatCard 
                 label="Total Return" 
                 value={formatPercentage(metrics.totalReturn)}
@@ -159,14 +161,6 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ data }) => 
                 value={formatNumber(metrics.sharpeRatio)} 
             />
             <StatCard 
-                label="Sortino Ratio" 
-                value={formatNumber(metrics.sortinoRatio)} 
-            />
-            <StatCard 
-                label="Calmar Ratio" 
-                value={formatNumber(metrics.calmarRatio)} 
-            />
-            <StatCard 
                 label="Max Drawdown" 
                 value={formatPercentage(metrics.maxDrawdown)}
                 valueColor="text-brand-danger"
@@ -177,7 +171,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ data }) => 
                 valueColor="text-brand-success"
             />
             <StatCard 
-                label="Total Trades" 
+                label="Closed Trades" 
                 value={metrics.numTrades.toLocaleString()} 
             />
         </div>

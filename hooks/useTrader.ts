@@ -33,6 +33,36 @@ export const useTrader = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
   const intervalRef = useRef<number | null>(null);
+  const lastTradeCountRef = useRef<number>(0);
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize notification sound (optional - can be disabled)
+  useEffect(() => {
+    // Create a simple beep sound using Web Audio API
+    const createBeepSound = () => {
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800; // Frequency in Hz
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (error) {
+        console.log('Audio notification not available:', error);
+      }
+    };
+    
+    notificationSoundRef.current = { play: createBeepSound } as any;
+  }, []);
 
   const clearToast = () => setToast(null);
 
@@ -59,6 +89,7 @@ export const useTrader = () => {
     if (isInitialLoad) setIsLoading(true);
     try {
       const { status, positions, summary, activity } = await tradingService.getFullStatus();
+      console.log('Fetched status:', status, 'Positions:', positions.length);
       setStatus(status);
       setPositions(positions);
       setPortfolioSummary(summary);
@@ -99,12 +130,11 @@ export const useTrader = () => {
   const fetchPerformanceMetrics = useCallback(async () => {
     setIsPerformanceLoading(true);
     try {
+      // Fetch from backend which now provides complete performance_metrics
       const data = await tradingService.getPerformanceMetrics();
       setPerformanceData(data);
     } catch (error) {
       console.error("Failed to fetch performance metrics", error);
-      const errorMessage = error instanceof Error ? error.message : 'Could not load performance data.';
-      showToast(errorMessage, 'error');
       setPerformanceData(null);
     } finally {
       setIsPerformanceLoading(false);
@@ -132,8 +162,19 @@ export const useTrader = () => {
     try {
       await tradingService.start(payload);
       closeConfigModal();
+      
+      // Request notification permission if not already granted
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            console.log('Browser notifications enabled');
+          }
+        });
+      }
+      
+      // Fetch status once after starting
       await fetchStatusAndPositions();
-      showToast('Live trading started successfully!', 'success');
+      showToast('Live trading started successfully! 🚀', 'success');
     } catch (error) {
       console.error("Failed to start trader", error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
@@ -172,15 +213,65 @@ export const useTrader = () => {
     fetchStatusAndPositions(true); // Initial load
   }, [fetchStatusAndPositions]);
   
+  // Trade notification effect - detects new trades and shows alerts
   useEffect(() => {
+    if (!activitySummary || status !== TraderStatus.LIVE) {
+      return;
+    }
+
+    const currentTradeCount = activitySummary.totalDecisionPoints;
+    const previousTradeCount = lastTradeCountRef.current;
+
+    // Detect new trades (skip initial load when previousTradeCount is 0)
+    if (currentTradeCount > previousTradeCount && previousTradeCount > 0) {
+      const newTradesCount = currentTradeCount - previousTradeCount;
+      
+      // Show toast notification
+      showToast(
+        `🎯 ${newTradesCount} new trade${newTradesCount > 1 ? 's' : ''} executed!`,
+        'success'
+      );
+      
+      // Play notification sound
+      if (notificationSoundRef.current) {
+        try {
+          notificationSoundRef.current.play();
+        } catch (error) {
+          console.log('Could not play notification sound:', error);
+        }
+      }
+      
+      // Optional: Browser notification (requires permission)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Trade Executed', {
+          body: `${newTradesCount} new trade${newTradesCount > 1 ? 's' : ''} executed`,
+          icon: '/favicon.ico', // Add your icon
+          tag: 'trade-notification',
+        });
+      }
+      
+      console.log(`🔔 New trades detected: ${previousTradeCount} → ${currentTradeCount}`);
+    }
+
+    // Update the ref with current count
+    lastTradeCountRef.current = currentTradeCount;
+  }, [activitySummary, status]);
+  
+  useEffect(() => {
+    console.log('Polling effect triggered, status:', status);
     if (status === TraderStatus.LIVE) {
       // Set up polling when live
-      intervalRef.current = window.setInterval(() => {
-        fetchStatusAndPositions();
-      }, 5000); // Poll every 5 seconds
+      if (!intervalRef.current) {
+        console.log('Setting up polling interval');
+        intervalRef.current = window.setInterval(() => {
+          console.log('Polling for status update');
+          fetchStatusAndPositions();
+        }, 10000); // Poll every 10 seconds for faster trade detection
+      }
     } else {
       // Clear polling when not live
       if (intervalRef.current) {
+        console.log('Clearing polling interval');
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }

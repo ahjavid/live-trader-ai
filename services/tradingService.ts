@@ -70,9 +70,8 @@ const mapApiStatusToSummary = (data: ApiStatusResponse): PortfolioSummary => ({
 });
 
 const mapApiToActivitySummary = (data: ApiStatusResponse): ActivitySummary => ({
-    totalDecisionPoints: data.activity_summary.total_decision_points,
-    reconfirmations: data.activity_summary.reconfirmations,
-    tradesExecuted: data.activity_summary.trades_executed,
+    totalDecisionPoints: data.activity_summary?.total_decision_points ?? 0,
+    tradesExecuted: data.activity_summary?.trades_executed ?? 0,
 });
 
 const mapApiTradeToTrade = (apiTrade: ApiTrade, index: number): Trade => ({
@@ -111,35 +110,88 @@ const mapApiToModelState = (data: ApiModelState): ModelState => ({
     timestamp: data.timestamp,
 });
 
+// Cache for the last status response to avoid duplicate API calls
+let cachedStatusResponse: any = null;
+let cacheTimestamp: number = 0;
+const CACHE_TTL = 5000; // Cache for 5 seconds
+
+const getCachedOrFetchStatus = async (): Promise<any> => {
+    const now = Date.now();
+    if (cachedStatusResponse && (now - cacheTimestamp) < CACHE_TTL) {
+        console.log('Using cached status response');
+        return cachedStatusResponse;
+    }
+
+    console.log('Fetching fresh status from API');
+    const response = await fetch(`${API_BASE_URL}/api/v1/rl/live/status`, {
+        method: 'GET',
+        headers: getHeaders(),
+    });
+
+    if (!response.ok) {
+        if (response.status === 429) {
+            console.log('Rate limited, using stale cache if available');
+            if (cachedStatusResponse) return cachedStatusResponse;
+        }
+        throw new Error(`Status check failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    cachedStatusResponse = data;
+    cacheTimestamp = now;
+    return data;
+};
+
 export const tradingService = {
   getFullStatus: async (): Promise<{ status: TraderStatus; positions: Position[]; summary: PortfolioSummary | null; activity: ActivitySummary | null }> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/rl-trading/live/status`, {
-            method: 'GET',
-            headers: getHeaders(),
-        });
+        const data = await getCachedOrFetchStatus();
+        console.log('Status API response:', data);
+        
+        // Check if trading is actually running - backend returns status: "active" when live
+        if (data.is_trading === true || data.status === "active") {
+            // Extract positions from the actual backend structure: positions: { "SYMBOL": {...} }
+            const positionsObj = data.positions || {};
+            const positions = Object.entries(positionsObj).map(([symbol, pos]: [string, any]) => ({
+                id: symbol,
+                symbol: symbol,
+                side: pos.position_size >= 0 ? PositionSide.BUY : PositionSide.SELL,
+                quantity: Math.abs(pos.position_size || 0),
+                entryPrice: pos.entry_price || 0,
+                currentPrice: pos.entry_price || 0, // Backend doesn't provide current price
+                pnl: pos.current_pnl || 0,
+            }));
 
-        if (!response.ok) {
-            // A 404 or other error likely means the service isn't running live
-            return { status: TraderStatus.STOPPED, positions: [], summary: null, activity: null };
-        }
-        
-        const data: ApiStatusResponse = await response.json();
-        
-        if (data && data.position_details) {
-            const positions = Object.entries(data.position_details).map(([symbol, apiPos]) => mapApiPositionToPosition(symbol, apiPos));
-            const summary = mapApiStatusToSummary(data);
-            const activity = mapApiToActivitySummary(data);
+            // Map the actual backend response to frontend summary structure
+            // Backend now provides performance_metrics with calculated values
+            const perfMetrics = data.performance_metrics || {};
+            const totalPnl = positions.reduce((sum, pos) => sum + pos.pnl, 0);
+            const summary: PortfolioSummary = {
+                portfolioValue: data.portfolio_value || data.balance || 0,
+                unrealizedPnl: totalPnl,
+                realizedPnl: perfMetrics.total_pnl || 0, // From backend performance metrics
+                totalPnl: perfMetrics.total_pnl || totalPnl,
+                drawdown: perfMetrics.max_drawdown || 0, // From backend performance metrics
+                balance: data.balance || 0,
+                dailyPnl: totalPnl,
+                winRate: perfMetrics.win_rate || 0, // From backend performance metrics
+                tradeCount: data.total_trades || 0,
+            };
+
+            // Backend provides trade counts but not activity_summary
+            // totalDecisionPoints = all trades opened (total_trades)
+            // tradesExecuted = closed trades (num_trades from performance_metrics)
+            const activity: ActivitySummary = {
+                totalDecisionPoints: data.total_trades || 0, // All trades
+                tradesExecuted: perfMetrics.num_trades || 0, // Closed trades only
+            };
+
+            console.log('Parsed positions:', positions.length, 'Summary:', summary);
             return { status: TraderStatus.LIVE, positions, summary, activity };
         }
 
-        // If the response is valid but has no positions, it's live but idle.
-        if (data) {
-             const summary = mapApiStatusToSummary(data);
-             const activity = mapApiToActivitySummary(data);
-             return { status: TraderStatus.LIVE, positions: [], summary, activity };
-        }
-
+        // If status is not active or is_trading is false, return stopped
+        console.log('Trading not running, status:', data.status, 'is_trading:', data.is_trading);
         return { status: TraderStatus.STOPPED, positions: [], summary: null, activity: null };
     } catch (error) {
         console.error('Failed to fetch status:', error);
@@ -148,16 +200,19 @@ export const tradingService = {
   },
 
   start: async (payload: StartTraderPayload): Promise<{ message: string }> => {
-    const response = await fetch(`${API_BASE_URL}/api/rl-trading/live/start`, {
+    console.log('Starting trader with payload:', payload);
+    const response = await fetch(`${API_BASE_URL}/api/v1/rl/live/start`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(payload),
     });
-    return handleResponse(response);
+    const result = await handleResponse(response);
+    console.log('Start response:', result);
+    return result;
   },
 
   stop: async (): Promise<{ message: string }> => {
-    const response = await fetch(`${API_BASE_URL}/api/rl-trading/live/stop`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/rl/live/stop`, {
         method: 'POST',
         headers: getHeaders(),
     });
@@ -165,30 +220,80 @@ export const tradingService = {
   },
 
   getTradeHistory: async (): Promise<Trade[]> => {
-    const response = await fetch(`${API_BASE_URL}/api/rl-trading/trades`, {
-      method: 'GET',
-      headers: getHeaders(),
-    });
-    const data: ApiTrade[] = await handleResponse(response);
-    if (Array.isArray(data)) {
-        return data.map(mapApiTradeToTrade);
+    try {
+        const data = await getCachedOrFetchStatus();
+        console.log('Trade history from cached/fresh backend data');
+
+        // Backend now returns recent_trades array (last 50 trades)
+        const recentTrades = data.recent_trades || [];
+        
+        // Map backend trade format to frontend Trade type
+        return recentTrades.map((trade: any, index: number) => ({
+            id: `${trade.symbol}-${trade.timestamp}-${index}`,
+            symbol: trade.symbol,
+            entryDate: trade.timestamp,
+            exitDate: trade.timestamp, // Backend doesn't separate entry/exit for open positions
+            quantity: trade.position_size,
+            entryPrice: trade.price,
+            exitPrice: trade.price,
+            pnl: trade.pnl,
+            fees: 0, // Not provided by backend
+        }));
+    } catch (error) {
+        console.error('Failed to fetch trade history:', error);
+        return [];
     }
-    return [];
   },
 
   getPerformanceMetrics: async (): Promise<PerformanceData> => {
-    const response = await fetch(`${API_BASE_URL}/api/rl-trading/performance`, {
-        method: 'GET',
-        headers: getHeaders(),
-    });
-    const data: ApiPerformanceResponse = await handleResponse(response);
-    const metrics = mapApiToPerformanceMetrics(data);
-    const trades = Array.isArray(data.trades) ? data.trades.map(mapApiTradeToTrade) : [];
-    return { metrics, trades };
+    try {
+        const data = await getCachedOrFetchStatus();
+        console.log('Performance data from cached/fresh backend:', data.performance_metrics);
+        
+        // Check if trading is active
+        if (!data.is_trading && data.status !== 'active') {
+            console.log('Performance metrics unavailable - trading not active');
+            throw new Error('Trading not active');
+        }
+        
+        // Backend now provides performance_metrics object with all calculated metrics
+        const backendMetrics = data.performance_metrics || {};
+        
+        const metrics: PerformanceMetrics = {
+            totalReturn: backendMetrics.total_return || 0,
+            sharpeRatio: backendMetrics.sharpe_ratio || 0,
+            sortinoRatio: 0, // Backend doesn't provide this yet
+            calmarRatio: 0, // Backend doesn't provide this yet
+            maxDrawdown: backendMetrics.max_drawdown || 0,
+            winRate: backendMetrics.win_rate || 0,
+            numTrades: backendMetrics.num_trades || 0,
+            finalBalance: data.balance || 0,
+        };
+        
+        // Get recent trades from backend
+        const recentTrades = data.recent_trades || [];
+        const trades: Trade[] = recentTrades.map((trade: any, index: number) => ({
+            id: `${trade.symbol}-${trade.timestamp}-${index}`,
+            symbol: trade.symbol,
+            entryDate: trade.timestamp,
+            exitDate: trade.timestamp,
+            quantity: trade.position_size,
+            entryPrice: trade.price,
+            exitPrice: trade.price,
+            pnl: trade.pnl,
+            fees: 0,
+        }));
+        
+        console.log('Performance metrics from backend:', metrics);
+        return { metrics, trades };
+    } catch (error) {
+        console.error('Failed to fetch performance metrics:', error);
+        throw error;
+    }
   },
 
   getPrediction: async (symbol: string): Promise<Prediction> => {
-    const response = await fetch(`${API_BASE_URL}/api/rl-trading/predict`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/rl/predict`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ symbol }), // API requires symbol, other fields are optional
@@ -198,11 +303,36 @@ export const tradingService = {
   },
 
   getModelState: async (): Promise<ModelState> => {
-    const response = await fetch(`${API_BASE_URL}/api/rl-trading/state`, {
-        method: 'GET',
-        headers: getHeaders(),
-    });
-    const data: ApiModelState = await handleResponse(response);
-    return mapApiToModelState(data);
+    try {
+        const data = await getCachedOrFetchStatus();
+        
+        // Backend provides recent_trades with confidence and action data
+        // Use the most recent trade as the "last prediction"
+        const recentTrades = data.recent_trades || [];
+        
+        if (recentTrades.length > 0) {
+            const lastTrade = recentTrades[recentTrades.length - 1];
+            
+            return {
+                lastPrediction: {
+                    actionType: lastTrade.action || 'HOLD',
+                    positionSize: lastTrade.position_size || 0,
+                    confidence: lastTrade.confidence || 0,
+                    expectedReturn: 0, // Not provided by backend
+                    riskScore: lastTrade.risk_score || 0,
+                },
+                timestamp: lastTrade.timestamp || data.timestamp || new Date().toISOString(),
+            };
+        }
+        
+        // No trades yet
+        return {
+            lastPrediction: null,
+            timestamp: data.timestamp || new Date().toISOString(),
+        };
+    } catch (error) {
+        console.error('Failed to fetch model state:', error);
+        throw error;
+    }
   },
 };

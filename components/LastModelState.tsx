@@ -17,7 +17,12 @@ const LastModelState: React.FC<LastModelStateProps> = ({ modelState }) => {
 
   const renderContent = () => {
     if (!modelState || !modelState.lastPrediction) {
-      return <p className="text-sm text-brand-text-secondary text-center py-4">Awaiting first model state...</p>;
+      return (
+        <div className="text-center py-4">
+          <p className="text-sm text-brand-text-secondary">Model prediction history not available.</p>
+          <p className="text-xs text-gray-500 mt-2">Trading decisions are being made, but prediction details aren't exposed by the backend API yet.</p>
+        </div>
+      );
     }
 
     const { lastPrediction, timestamp } = modelState;
