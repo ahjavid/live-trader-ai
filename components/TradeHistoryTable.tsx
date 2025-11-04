@@ -19,17 +19,24 @@ const formatDate = (dateString: string) => {
 const TradeRow: React.FC<{ trade: Trade }> = ({ trade }) => {
     const isProfit = trade.pnl >= 0;
     const pnlColor = isProfit ? 'text-brand-success' : 'text-brand-danger';
+    const isClosed = trade.exitDate !== undefined;
 
     return (
         <tr className="hover:bg-brand-secondary transition-colors duration-150">
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-brand-text">{trade.symbol}</td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-brand-text-secondary">{formatDate(trade.entryDate)}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-brand-text-secondary">{formatDate(trade.exitDate)}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-brand-text-secondary">
+                {isClosed ? formatDate(trade.exitDate!) : <span className="text-yellow-500">Open</span>}
+            </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-brand-text">{trade.quantity.toFixed(4)}</td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-brand-text-secondary">{formatCurrency(trade.entryPrice)}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-brand-text">{formatCurrency(trade.exitPrice)}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-brand-text">
+                {trade.exitPrice !== undefined ? formatCurrency(trade.exitPrice) : '-'}
+            </td>
             {/* FIX: Corrected a syntax error in className by using a template literal for dynamic classes. */}
-            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${pnlColor}`}>{formatCurrency(trade.pnl)}</td>
+            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${pnlColor}`}>
+                {isClosed ? formatCurrency(trade.pnl) : '-'}
+            </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-brand-text-secondary">{formatCurrency(trade.fees)}</td>
         </tr>
     );

@@ -171,7 +171,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ data }) => 
                 valueColor="text-brand-success"
             />
             <StatCard 
-                label="Closed Trades" 
+                label="Total Trades" 
                 value={metrics.numTrades.toLocaleString()} 
             />
         </div>

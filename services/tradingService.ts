@@ -21,9 +21,12 @@ import {
 const API_BASE_URL = ''; // Use a relative path to leverage the development proxy
 
 const getHeaders = () => {
-    const apiKey = process.env.API_KEY || '';
+    console.log('🌍 All env vars:', import.meta.env);
+    const apiKey = import.meta.env.VITE_API_KEY || '';
+    console.log('🔑 API Key loaded:', apiKey ? `${apiKey.substring(0, 20)}...` : 'NOT FOUND');
     if (!apiKey) {
-        console.warn('API Key is not set. Please ensure the API_KEY environment variable is configured.');
+        console.warn('⚠️ API Key is not set. Please ensure the VITE_API_KEY environment variable is configured.');
+        console.warn('⚠️ Available env keys:', Object.keys(import.meta.env));
     }
     return {
         'Content-Type': 'application/json',
@@ -94,6 +97,7 @@ const mapApiToPerformanceMetrics = (data: ApiPerformanceResponse): PerformanceMe
     maxDrawdown: data.max_drawdown,
     winRate: data.win_rate,
     numTrades: data.num_trades,
+    closedTrades: data.num_trades, // For API responses, num_trades represents closed trades
     finalBalance: data.final_balance,
 });
 
@@ -103,11 +107,6 @@ const mapApiToPrediction = (data: ApiPrediction): Prediction => ({
     confidence: data.confidence,
     expectedReturn: data.expected_return,
     riskScore: data.risk_score,
-});
-
-const mapApiToModelState = (data: ApiModelState): ModelState => ({
-    lastPrediction: data.last_prediction ? mapApiToPrediction(data.last_prediction) : null,
-    timestamp: data.timestamp,
 });
 
 // Cache for the last status response to avoid duplicate API calls
@@ -148,42 +147,42 @@ export const tradingService = {
         const data = await getCachedOrFetchStatus();
         console.log('Status API response:', data);
         
-        // Check if trading is actually running - backend returns status: "active" when live
-        if (data.is_trading === true || data.status === "active") {
-            // Extract positions from the actual backend structure: positions: { "SYMBOL": {...} }
-            const positionsObj = data.positions || {};
-            const positions = Object.entries(positionsObj).map(([symbol, pos]: [string, any]) => ({
-                id: symbol,
-                symbol: symbol,
-                side: pos.position_size >= 0 ? PositionSide.BUY : PositionSide.SELL,
-                quantity: Math.abs(pos.position_size || 0),
+        // Check if trading is actually running - backend returns status: "running" when live
+        if (data.is_trading === true || data.status === "running" || data.status === "active") {
+            // Extract positions from the actual backend structure
+            // Backend returns: position_details.positions_by_symbol: [{ symbol, position_size_pct, shares, entry_price, current_price, ... }]
+            const positionsArray = data.position_details?.positions_by_symbol || [];
+            const positions = positionsArray.map((pos: any) => ({
+                id: pos.symbol,
+                symbol: pos.symbol,
+                side: pos.direction === "LONG" ? PositionSide.BUY : PositionSide.SELL,
+                quantity: pos.shares || 0,
                 entryPrice: pos.entry_price || 0,
-                currentPrice: pos.entry_price || 0, // Backend doesn't provide current price
-                pnl: pos.current_pnl || 0,
+                currentPrice: pos.current_price || pos.entry_price || 0,
+                pnl: pos.unrealized_pnl || 0,
             }));
 
             // Map the actual backend response to frontend summary structure
-            // Backend now provides performance_metrics with calculated values
             const perfMetrics = data.performance_metrics || {};
-            const totalPnl = positions.reduce((sum, pos) => sum + pos.pnl, 0);
+            const posDetails = data.position_details || {};
+            const totalPnl = posDetails.total_unrealized_pnl || 0;
+            
             const summary: PortfolioSummary = {
-                portfolioValue: data.portfolio_value || data.balance || 0,
+                portfolioValue: posDetails.total_portfolio_value || data.current_balance || 0,
                 unrealizedPnl: totalPnl,
-                realizedPnl: perfMetrics.total_pnl || 0, // From backend performance metrics
-                totalPnl: perfMetrics.total_pnl || totalPnl,
-                drawdown: perfMetrics.max_drawdown || 0, // From backend performance metrics
-                balance: data.balance || 0,
+                realizedPnl: data.total_pnl || 0,
+                totalPnl: data.total_pnl || 0,
+                drawdown: perfMetrics.max_drawdown || 0,
+                balance: data.current_balance || 0,
                 dailyPnl: totalPnl,
-                winRate: perfMetrics.win_rate || 0, // From backend performance metrics
+                winRate: data.win_rate || 0,
                 tradeCount: data.total_trades || 0,
             };
 
-            // Backend provides trade counts but not activity_summary
-            // totalDecisionPoints = all trades opened (total_trades)
-            // tradesExecuted = closed trades (num_trades from performance_metrics)
+            // Backend provides trade counts
             const activity: ActivitySummary = {
-                totalDecisionPoints: data.total_trades || 0, // All trades
-                tradesExecuted: perfMetrics.num_trades || 0, // Closed trades only
+                totalDecisionPoints: data.total_trades || 0,
+                tradesExecuted: data.winning_trades + (data.losing_trades || 0) || 0,
             };
 
             console.log('Parsed positions:', positions.length, 'Summary:', summary);
@@ -224,21 +223,26 @@ export const tradingService = {
         const data = await getCachedOrFetchStatus();
         console.log('Trade history from cached/fresh backend data');
 
-        // Backend now returns recent_trades array (last 50 trades)
+        // Backend returns recent_trades array with different actions: BUY, SELL, UPDATE
         const recentTrades = data.recent_trades || [];
         
         // Map backend trade format to frontend Trade type
-        return recentTrades.map((trade: any, index: number) => ({
-            id: `${trade.symbol}-${trade.timestamp}-${index}`,
-            symbol: trade.symbol,
-            entryDate: trade.timestamp,
-            exitDate: trade.timestamp, // Backend doesn't separate entry/exit for open positions
-            quantity: trade.position_size,
-            entryPrice: trade.price,
-            exitPrice: trade.price,
-            pnl: trade.pnl,
-            fees: 0, // Not provided by backend
-        }));
+        return recentTrades.map((trade: any, index: number) => {
+            const isClosed = trade.action === 'SELL';
+            const pnl = trade.pnl || 0; // PnL only available for closed trades (SELL)
+            
+            return {
+                id: `${trade.symbol}-${trade.timestamp}-${index}`,
+                symbol: trade.symbol,
+                entryDate: trade.timestamp,
+                exitDate: isClosed ? trade.timestamp : undefined, // Only show exit date for closed trades
+                quantity: trade.position_size || trade.shares || 0,
+                entryPrice: trade.price || trade.entry_price || 0,
+                exitPrice: isClosed ? trade.price : undefined,
+                pnl: pnl,
+                fees: trade.transaction_costs || 0,
+            };
+        });
     } catch (error) {
         console.error('Failed to fetch trade history:', error);
         return [];
@@ -247,44 +251,64 @@ export const tradingService = {
 
   getPerformanceMetrics: async (): Promise<PerformanceData> => {
     try {
-        const data = await getCachedOrFetchStatus();
-        console.log('Performance data from cached/fresh backend:', data.performance_metrics);
+        // Use dedicated /api/v1/rl/state endpoint for performance data
+        console.log('Fetching performance data from /api/v1/rl/state');
+        const response = await fetch(`${API_BASE_URL}/api/v1/rl/state`, {
+            method: 'GET',
+            headers: getHeaders(),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch performance: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Performance data from /api/v1/rl/state:', data);
         
         // Check if trading is active
-        if (!data.is_trading && data.status !== 'active') {
+        if (data.status !== 'running' && data.status !== 'active') {
             console.log('Performance metrics unavailable - trading not active');
             throw new Error('Trading not active');
         }
         
-        // Backend now provides performance_metrics object with all calculated metrics
-        const backendMetrics = data.performance_metrics || {};
+        // Use the performance_metrics object from the state endpoint
+        const perfMetrics = data.performance_metrics || {};
+        
+        // Calculate closed trades from winning/losing trades if available
+        const closedTrades = (data.winning_trades || 0) + (data.losing_trades || 0);
         
         const metrics: PerformanceMetrics = {
-            totalReturn: backendMetrics.total_return || 0,
-            sharpeRatio: backendMetrics.sharpe_ratio || 0,
+            totalReturn: data.total_return || perfMetrics.total_return || 0,
+            sharpeRatio: data.sharpe_ratio || perfMetrics.sharpe_ratio || 0,
             sortinoRatio: 0, // Backend doesn't provide this yet
             calmarRatio: 0, // Backend doesn't provide this yet
-            maxDrawdown: backendMetrics.max_drawdown || 0,
-            winRate: backendMetrics.win_rate || 0,
-            numTrades: backendMetrics.num_trades || 0,
+            maxDrawdown: data.max_drawdown || perfMetrics.max_drawdown || 0,
+            winRate: data.win_rate || perfMetrics.win_rate || 0,
+            numTrades: data.trade_count || 0,
+            closedTrades: closedTrades,
             finalBalance: data.balance || 0,
         };
         
-        // Get recent trades from backend
+        // Get recent trades from the state endpoint
         const recentTrades = data.recent_trades || [];
-        const trades: Trade[] = recentTrades.map((trade: any, index: number) => ({
-            id: `${trade.symbol}-${trade.timestamp}-${index}`,
-            symbol: trade.symbol,
-            entryDate: trade.timestamp,
-            exitDate: trade.timestamp,
-            quantity: trade.position_size,
-            entryPrice: trade.price,
-            exitPrice: trade.price,
-            pnl: trade.pnl,
-            fees: 0,
-        }));
+        const trades: Trade[] = recentTrades.map((trade: any, index: number) => {
+            const isClosed = trade.action === 'SELL';
+            const pnl = trade.pnl || 0;
+            
+            return {
+                id: `${trade.symbol}-${trade.timestamp}-${index}`,
+                symbol: trade.symbol,
+                entryDate: trade.timestamp,
+                exitDate: isClosed ? trade.timestamp : undefined,
+                quantity: trade.position_size || trade.shares || 0,
+                entryPrice: trade.price || trade.entry_price || 0,
+                exitPrice: isClosed ? trade.price : undefined,
+                pnl: pnl,
+                fees: trade.transaction_costs || 0,
+            };
+        });
         
-        console.log('Performance metrics from backend:', metrics);
+        console.log('Performance metrics from /api/v1/rl/state:', metrics);
         return { metrics, trades };
     } catch (error) {
         console.error('Failed to fetch performance metrics:', error);

@@ -45,10 +45,10 @@ export interface Trade {
   id: string;
   symbol: string;
   entryDate: string;
-  exitDate: string;
+  exitDate?: string; // Optional for open positions
   quantity: number;
   entryPrice: number;
-  exitPrice: number;
+  exitPrice?: number; // Optional for open positions
   pnl: number;
   fees: number;
 }
@@ -60,7 +60,8 @@ export interface PerformanceMetrics {
   calmarRatio: number;
   maxDrawdown: number;
   winRate: number;
-  numTrades: number;
+  numTrades: number; // Total trades (including open positions)
+  closedTrades: number; // Only closed/completed trades
   finalBalance: number;
 }
 
