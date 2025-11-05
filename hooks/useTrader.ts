@@ -266,7 +266,7 @@ export const useTrader = () => {
         intervalRef.current = window.setInterval(() => {
           console.log('Polling for status update');
           fetchStatusAndPositions();
-        }, 10000); // Poll every 10 seconds for faster trade detection
+        }, 300000); // Poll every 5 minutes to match backend trading interval
       }
     } else {
       // Clear polling when not live
