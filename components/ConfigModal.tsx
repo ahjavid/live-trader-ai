@@ -8,15 +8,28 @@ interface ConfigModalProps {
   isLoading: boolean;
 }
 
+// Top performing symbols (>20% return) based on backtesting
+const SYMBOL_PRESETS = {
+  'Top 5 Elite': 'NEM,ORCL,AVGO,NVDA,ABBV',
+  'Top 10 Performers': 'NEM,ORCL,AVGO,NVDA,ABBV,C,GOOGL,GS,PFE,CAT',
+  'Diversified 15': 'NEM,ORCL,AVGO,NVDA,GOOGL,GS,CAT,JNJ,NOW,MU,PM,BX,BA,MSFT,AMD',
+  'All Top 24': 'NEM,ORCL,AVGO,NVDA,ABBV,C,GOOGL,GS,PFE,CAT,JNJ,NOW,MU,UBER,PM,BX,UNH,AXP,BA,GE,AMD,MSFT,T,DIS',
+  'Tech Focus': 'NVDA,AVGO,GOOGL,NOW,MU,AMD,MSFT,ORCL',
+  'Finance & Industrials': 'GS,C,AXP,BX,CAT,BA,GE',
+  'Healthcare & Consumer': 'ABBV,PFE,JNJ,UNH,PM,DIS',
+  'Custom': ''
+};
+
 // Flatten the config for easier state management in the form
 const initialFormState = {
-  symbols: 'AAPL,TSLA,NVDA,MSFT',
+  preset: 'Top 5 Elite',
+  symbols: SYMBOL_PRESETS['Top 5 Elite'],
   initial_balance: 10000,
   min_confidence: 0.6,
   max_risk: 0.8,
   max_position: 1.0,
   max_risk_per_trade: 0.02,
-  max_positions: 3,
+  max_positions: 5,
   max_drawdown: 0.05,
   position_limit: 25000,
   risk_multiplier: 0.5,
@@ -29,11 +42,22 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, onStart, isL
 
   if (!isOpen) return null;
 
+  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const preset = e.target.value as keyof typeof SYMBOL_PRESETS;
+    setFormState((prev) => ({
+      ...prev,
+      preset,
+      symbols: SYMBOL_PRESETS[preset],
+    }));
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     setFormState((prev) => ({
       ...prev,
       [name]: type === 'number' ? (value === '' ? '' : parseFloat(value)) : value,
+      // If user manually edits symbols, switch to Custom preset
+      ...(name === 'symbols' ? { preset: 'Custom' } : {}),
     }));
   };
 
@@ -81,8 +105,38 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, onStart, isL
             <legend className="text-lg font-medium text-brand-primary mb-3">Core Parameters</legend>
             <div className="space-y-4">
               <div>
-                <label htmlFor="symbols" className="block text-sm font-medium text-brand-text-secondary">Symbols (comma-separated)</label>
-                <input type="text" name="symbols" id="symbols" value={formState.symbols} onChange={handleChange} required className="mt-1 block w-full bg-brand-secondary border-transparent rounded-md shadow-sm focus:ring-brand-primary focus:border-brand-primary text-brand-text p-2" />
+                <label htmlFor="preset" className="block text-sm font-medium text-brand-text-secondary">Symbol Preset (Top Performers)</label>
+                <select 
+                  name="preset" 
+                  id="preset" 
+                  value={formState.preset} 
+                  onChange={handlePresetChange}
+                  className="mt-1 block w-full bg-brand-secondary border-transparent rounded-md shadow-sm focus:ring-brand-primary focus:border-brand-primary text-brand-text p-2"
+                >
+                  {Object.keys(SYMBOL_PRESETS).map((preset) => (
+                    <option key={preset} value={preset}>{preset}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="symbols" className="block text-sm font-medium text-brand-text-secondary">
+                  Symbols (comma-separated)
+                  {formState.preset !== 'Custom' && (
+                    <span className="ml-2 text-xs text-brand-text-tertiary">
+                      {formState.symbols.split(',').length} symbols selected
+                    </span>
+                  )}
+                </label>
+                <input 
+                  type="text" 
+                  name="symbols" 
+                  id="symbols" 
+                  value={formState.symbols} 
+                  onChange={handleChange} 
+                  required 
+                  placeholder={formState.preset === 'Custom' ? 'Enter symbols (e.g., AAPL,GOOGL,MSFT)' : ''}
+                  className="mt-1 block w-full bg-brand-secondary border-transparent rounded-md shadow-sm focus:ring-brand-primary focus:border-brand-primary text-brand-text p-2" 
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
