@@ -86,17 +86,25 @@ export const useTrader = () => {
   }, []);
 
   const fetchStatusAndPositions = useCallback(async (isInitialLoad = false) => {
+    console.log('[useTrader.fetchStatusAndPositions] Starting fetch, isInitialLoad:', isInitialLoad);
     if (isInitialLoad) setIsLoading(true);
     try {
       const { status, positions, summary, activity } = await tradingService.getFullStatus();
-      console.log('Fetched status:', status, 'Positions:', positions.length);
+      console.log('[useTrader.fetchStatusAndPositions] Received:', 
+        'status:', status, 
+        'positions:', positions.length, 
+        'summary:', summary ? 'exists' : 'null',
+        'activity:', activity ? 'exists' : 'null'
+      );
       setStatus(status);
       setPositions(positions);
       setPortfolioSummary(summary);
       setActivitySummary(activity);
       if (status === TraderStatus.LIVE) {
+        console.log('[useTrader.fetchStatusAndPositions] Status is LIVE, fetching model state');
         fetchModelState();
       } else {
+        console.log('[useTrader.fetchStatusAndPositions] Status is not LIVE, clearing model state');
         setModelState(null);
       }
     } catch (error) {
@@ -109,6 +117,7 @@ export const useTrader = () => {
       setModelState(null);
     } finally {
       if (isInitialLoad) setIsLoading(false);
+      console.log('[useTrader.fetchStatusAndPositions] Fetch complete');
     }
   }, [fetchModelState]);
 
@@ -158,9 +167,11 @@ export const useTrader = () => {
   }, []);
 
   const handleStart = useCallback(async (payload: StartTraderPayload) => {
+    console.log('[useTrader.handleStart] Starting with payload:', payload);
     setIsActionLoading(true);
     try {
       await tradingService.start(payload);
+      console.log('[useTrader.handleStart] Trading service started, closing modal');
       closeConfigModal();
       
       // Request notification permission if not already granted
@@ -173,7 +184,9 @@ export const useTrader = () => {
       }
       
       // Fetch status once after starting
+      console.log('[useTrader.handleStart] Fetching status and positions');
       await fetchStatusAndPositions();
+      console.log('[useTrader.handleStart] Status fetch complete');
       showToast('Live trading started successfully! 🚀', 'success');
     } catch (error) {
       console.error("Failed to start trader", error);
@@ -181,6 +194,7 @@ export const useTrader = () => {
       showToast(errorMessage, 'error');
     } finally {
       setIsActionLoading(false);
+      console.log('[useTrader.handleStart] handleStart complete');
     }
   }, [fetchStatusAndPositions]);
 

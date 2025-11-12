@@ -63,8 +63,12 @@ const App: React.FC = () => {
   }, [activeTab, status, fetchTradeHistory, fetchPerformanceMetrics, trades.length, performanceData]);
 
   const renderContent = () => {
+    console.log('[App.renderContent] isLoading:', isLoading, 'status:', status, 'activeTab:', activeTab);
+    console.log('[App.renderContent] positions:', positions.length, 'portfolioSummary:', portfolioSummary);
+    
     // Show loading spinner only when initially loading and not yet live
     if (isLoading && status === 'STOPPED') {
+      console.log('[App.renderContent] Showing loading spinner');
       return (
         <div className="flex justify-center items-center h-96 mt-8">
           <LoadingSpinner />
@@ -74,6 +78,7 @@ const App: React.FC = () => {
 
     // Always render content when LIVE or when we have historical data
     if (activeTab === 'dashboard') {
+      console.log('[App.renderContent] Rendering dashboard');
       return (
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8 flex-grow">
           {/* Main Content - Takes up remaining vertical space */}
