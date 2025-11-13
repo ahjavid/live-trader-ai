@@ -226,20 +226,23 @@ export const tradingService = {
         // Backend returns recent_trades array with different actions: BUY, SELL, UPDATE
         const recentTrades = data.recent_trades || [];
         
+        console.log('Recent trades raw data:', JSON.stringify(recentTrades, null, 2));
+        
+        // Filter to only show CLOSED trades (SELL actions)
+        // Open positions (BUY/UPDATE) should not appear in trade history
+        const closedTrades = recentTrades.filter((trade: any) => trade.action === 'SELL');
+        
         // Map backend trade format to frontend Trade type
-        return recentTrades.map((trade: any, index: number) => {
-            const isClosed = trade.action === 'SELL';
-            const pnl = trade.pnl || 0; // PnL only available for closed trades (SELL)
-            
+        return closedTrades.map((trade: any, index: number) => {
             return {
                 id: `${trade.symbol}-${trade.timestamp}-${index}`,
                 symbol: trade.symbol,
-                entryDate: trade.timestamp,
-                exitDate: isClosed ? trade.timestamp : undefined, // Only show exit date for closed trades
+                entryDate: trade.entry_timestamp || trade.timestamp,
+                exitDate: trade.timestamp, // SELL timestamp is exit time
                 quantity: trade.position_size || trade.shares || 0,
-                entryPrice: trade.price || trade.entry_price || 0,
-                exitPrice: isClosed ? trade.price : undefined,
-                pnl: pnl,
+                entryPrice: trade.entry_price || 0,
+                exitPrice: trade.price || trade.exit_price || 0,
+                pnl: trade.pnl || 0,
                 fees: trade.transaction_costs || 0,
             };
         });
