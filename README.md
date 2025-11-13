@@ -2,6 +2,26 @@
 
 A real-time AI-powered trading dashboard for monitoring and managing automated trading operations. Built with React, TypeScript, and Vite.
 
+## 📈 Performance Highlights
+
+**Latest Backtest Results (2025-11-13)**
+- **Period**: January 1 - September 30, 2025
+- **Risk Profile**: Aggressive (50-75% position sizing)
+- **Top 30 Performers**: 100% profitable
+- **Average Return**: 126.2%
+- **Average Sharpe Ratio**: 2.147
+- **Average Win Rate**: 76.4%
+- **Average Max Drawdown**: 15.01%
+
+**Top 5 Elite Performers**:
+1. **NEM** - 628.09% return, 3.619 Sharpe, 85.7% win rate
+2. **ORCL** - 489.33% return, 3.062 Sharpe, 87.1% win rate
+3. **AVGO** - 400.42% return, 3.28 Sharpe, 80.6% win rate
+4. **ACN** - 270.49% return, 2.35 Sharpe, 95.2% win rate
+5. **ADBE** - 216.06% return, 2.852 Sharpe, 90.9% win rate
+
+*Note: Past performance does not guarantee future results. Always test thoroughly in paper trading mode before live trading.*
+
 ## ✨ Features
 
 - **Real-time Trading Dashboard** - Monitor live trading activity and positions

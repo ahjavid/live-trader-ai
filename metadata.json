@@ -1,5 +1,15 @@
 {
   "name": "Live Trader AI",
-  "description": "A sleek and responsive dashboard to monitor and control a live trading bot. Start, stop, and view the status of trading positions in real-time.",
+  "description": "A sleek and responsive AI-powered trading dashboard. Monitor real-time positions, track performance (126.2% avg return, 2.147 Sharpe, 76.4% win rate), and control automated trading with top 30 performing symbols from aggressive backtests.",
+  "version": "2.0.0",
+  "updated": "2025-11-13",
+  "backtest_data": {
+    "period": "2025-01-01 to 2025-09-30",
+    "risk_profile": "aggressive",
+    "top_symbols": 30,
+    "avg_return_pct": 126.2,
+    "avg_sharpe": 2.147,
+    "avg_win_rate_pct": 76.4
+  },
   "requestFramePermissions": []
 }

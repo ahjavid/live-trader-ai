@@ -8,15 +8,15 @@ interface ConfigModalProps {
   isLoading: boolean;
 }
 
-// Top performing symbols based on aggressive backtest (2025-11-12)
+// Top performing symbols based on aggressive backtest (2025-11-13)
 // Source: backtest_all_models_results_aggressive.json (2025-01-01 to 2025-09-30)
-// Avg return: 47.19%, Sharpe: 1.567, Win rate: 72.4%
+// Avg return: 126.2%, Sharpe: 2.147, Win rate: 76.4%
 const SYMBOL_PRESETS = {
-  'Top 5 Elite': 'NEM,ORCL,AVGO,CAT,ADBE',
-  'Top 10 Performers': 'NEM,ORCL,AVGO,CAT,ADBE,NVDA,GS,ABBV,JNJ,PM',
-  'Top 15 Balanced': 'NEM,ORCL,AVGO,CAT,ADBE,NVDA,GS,ABBV,JNJ,PM,MS,IBM,DIS,PFE,C',
-  'Top 20 Diversified': 'NEM,ORCL,AVGO,CAT,ADBE,NVDA,GS,ABBV,JNJ,PM,MS,IBM,DIS,PFE,C,CRM,T,AMZN,MCD,AMD',
-  'All Top 30': 'NEM,ORCL,AVGO,CAT,ADBE,NVDA,GS,ABBV,JNJ,PM,MS,IBM,DIS,PFE,C,CRM,T,AMZN,MCD,AMD,GE,UBER,BX,SONY,NKE,PLTR,MU,WFC,KO,MMM',
+  'Top 5 Elite': 'NEM,ORCL,AVGO,ACN,ADBE',
+  'Top 10 Performers': 'NEM,ORCL,AVGO,ACN,ADBE,NVDA,CAT,ABBV,C,GOOGL',
+  'Top 15 Balanced': 'NEM,ORCL,AVGO,ACN,ADBE,NVDA,CAT,ABBV,C,GOOGL,TMO,CRM,PM,MS,JNJ',
+  'Top 20 Diversified': 'NEM,ORCL,AVGO,ACN,ADBE,NVDA,CAT,ABBV,C,GOOGL,TMO,CRM,PM,MS,JNJ,GE,T,PFE,MSFT,BX',
+  'All Top 30': 'NEM,ORCL,AVGO,ACN,ADBE,NVDA,CAT,ABBV,C,GOOGL,TMO,CRM,PM,MS,JNJ,GE,T,PFE,MSFT,BX,DIS,AMZN,AMD,MCD,UBER,IBM,BAC,RTX,MMM,KO',
   'Tech Giants': 'NVDA,AVGO,ADBE,IBM,CRM,AMZN,AMD,ORCL,PLTR,MU',
   'Finance Leaders': 'GS,MS,C,BX,WFC',
   'Healthcare & Consumer': 'ABBV,JNJ,PFE,PM,MCD,KO,NKE',
