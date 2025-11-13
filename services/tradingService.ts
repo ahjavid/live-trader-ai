@@ -152,15 +152,25 @@ export const tradingService = {
             // Extract positions from the actual backend structure
             // Backend returns: position_details.positions_by_symbol: [{ symbol, position_size_pct, shares, entry_price, current_price, ... }]
             const positionsArray = data.position_details?.positions_by_symbol || [];
-            const positions = positionsArray.map((pos: any) => ({
-                id: pos.symbol,
-                symbol: pos.symbol,
-                side: pos.direction === "LONG" ? PositionSide.BUY : PositionSide.SELL,
-                quantity: pos.shares || 0,
-                entryPrice: pos.entry_price || 0,
-                currentPrice: pos.current_price || pos.entry_price || 0,
-                pnl: pos.unrealized_pnl || 0,
-            }));
+            
+            console.log('Raw positions from backend:', JSON.stringify(positionsArray, null, 2));
+            
+            const positions = positionsArray.map((pos: any) => {
+                const position = {
+                    id: pos.symbol,
+                    symbol: pos.symbol,
+                    side: pos.direction === "LONG" ? PositionSide.BUY : PositionSide.SELL,
+                    quantity: pos.shares || 0,
+                    entryPrice: pos.entry_price || 0,
+                    currentPrice: pos.current_price || 0,
+                    pnl: pos.unrealized_pnl || 0,
+                };
+                
+                // Log each position's price data for verification
+                console.log(`Position ${pos.symbol}: entry=${pos.entry_price}, current=${pos.current_price}, pnl=${pos.unrealized_pnl}`);
+                
+                return position;
+            });
 
             // Map the actual backend response to frontend summary structure
             const perfMetrics = data.performance_metrics || {};
