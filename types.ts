@@ -5,8 +5,8 @@ export enum TraderStatus {
 }
 
 export enum PositionSide {
-    BUY = 'BUY',
-    SELL = 'SELL',
+    BUY = 'LONG',
+    SELL = 'SHORT',
 }
 
 export interface Position {

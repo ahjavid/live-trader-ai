@@ -160,14 +160,14 @@ export const tradingService = {
                     id: pos.symbol,
                     symbol: pos.symbol,
                     side: pos.direction === "LONG" ? PositionSide.BUY : PositionSide.SELL,
-                    quantity: pos.shares || 0,
+                    quantity: Math.abs(pos.shares || 0),
                     entryPrice: pos.entry_price || 0,
                     currentPrice: pos.current_price || 0,
                     pnl: pos.unrealized_pnl || 0,
                 };
                 
                 // Log each position's price data for verification
-                console.log(`Position ${pos.symbol}: entry=${pos.entry_price}, current=${pos.current_price}, pnl=${pos.unrealized_pnl}`);
+                console.log(`Position ${pos.symbol}: direction=${pos.direction}, entry=${pos.entry_price}, current=${pos.current_price}, pnl=${pos.unrealized_pnl}`);
                 
                 return position;
             });
@@ -179,12 +179,12 @@ export const tradingService = {
             
             const summary: PortfolioSummary = {
                 portfolioValue: posDetails.total_portfolio_value || data.current_balance || 0,
-                unrealizedPnl: totalPnl,
+                unrealizedPnl: posDetails.total_unrealized_pnl || 0,
                 realizedPnl: data.total_pnl || 0,
                 totalPnl: data.total_pnl || 0,
-                drawdown: perfMetrics.max_drawdown || 0,
+                drawdown: perfMetrics.max_drawdown || data.max_drawdown || 0,
                 balance: data.current_balance || 0,
-                dailyPnl: totalPnl,
+                dailyPnl: posDetails.total_unrealized_pnl || 0,
                 winRate: data.win_rate || 0,
                 tradeCount: data.total_trades || 0,
             };
@@ -238,20 +238,21 @@ export const tradingService = {
         
         console.log('Recent trades raw data:', JSON.stringify(recentTrades, null, 2));
         
-        // Filter to only show CLOSED trades (SELL actions)
-        // Open positions (BUY/UPDATE) should not appear in trade history
-        const closedTrades = recentTrades.filter((trade: any) => trade.action === 'SELL');
-        
-        // Map backend trade format to frontend Trade type
-        return closedTrades.map((trade: any, index: number) => {
+        // Show ALL trades as history entries (LONG, SHORT actions open positions)
+        // Backend uses: SHORT = sell/short position, LONG = buy/long position
+        // Trade history shows all trading activity
+        return recentTrades.map((trade: any, index: number) => {
+            // Determine if position is closed (would need exit_timestamp from backend)
+            const isClosed = trade.exit_timestamp !== undefined;
+            
             return {
                 id: `${trade.symbol}-${trade.timestamp}-${index}`,
                 symbol: trade.symbol,
-                entryDate: trade.entry_timestamp || trade.timestamp,
-                exitDate: trade.timestamp, // SELL timestamp is exit time
-                quantity: trade.position_size || trade.shares || 0,
-                entryPrice: trade.entry_price || 0,
-                exitPrice: trade.price || trade.exit_price || 0,
+                entryDate: trade.timestamp,
+                exitDate: isClosed ? trade.exit_timestamp : undefined,
+                quantity: Math.abs(trade.position_size || trade.shares || 0),
+                entryPrice: trade.price || trade.entry_price || 0,
+                exitPrice: isClosed ? trade.exit_price : undefined,
                 pnl: trade.pnl || 0,
                 fees: trade.transaction_costs || 0,
             };
