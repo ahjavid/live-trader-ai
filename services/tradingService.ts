@@ -107,6 +107,12 @@ const mapApiToPrediction = (data: ApiPrediction): Prediction => ({
     confidence: data.confidence,
     expectedReturn: data.expected_return,
     riskScore: data.risk_score,
+    volatility: data.volatility,
+    maxDrawdown: data.max_drawdown,
+    turbulenceLevel: data.turbulence_level,
+    riskFactors: data.risk_factors,
+    approved: data.approved,
+    rejectionReason: data.rejection_reason,
     timestamp: data.timestamp,
     metadata: data.metadata,
 });

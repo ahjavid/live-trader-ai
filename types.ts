@@ -75,7 +75,17 @@ export interface Prediction {
   positionSize: number;
   confidence: number;
   expectedReturn: number;
-  riskScore: number;
+  riskScore?: number;
+  volatility?: number;
+  maxDrawdown?: number | null;
+  turbulenceLevel?: string;
+  riskFactors?: {
+    volatility_regime?: string;
+    trend_strength?: number;
+    liquidity_score?: number;
+  };
+  approved?: boolean;
+  rejectionReason?: string | null;
   timestamp?: string;
   metadata?: {
     current_price?: number;
@@ -186,7 +196,17 @@ export interface ApiPrediction {
   position_size: number;
   confidence: number;
   expected_return: number;
-  risk_score: number;
+  risk_score?: number;
+  volatility?: number;
+  max_drawdown?: number | null;
+  turbulence_level?: string;
+  risk_factors?: {
+    volatility_regime?: string;
+    trend_strength?: number;
+    liquidity_score?: number;
+  };
+  approved?: boolean;
+  rejection_reason?: string | null;
   timestamp?: string;
   metadata?: {
     current_price?: number;

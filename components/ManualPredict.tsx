@@ -36,7 +36,7 @@ const ManualPredict: React.FC<ManualPredictProps> = ({ prediction, isLoading, on
       return <p className="text-sm text-center text-brand-text-secondary mt-4">Enter a symbol to get a prediction.</p>;
     }
 
-    const { actionType, confidence, expectedReturn, riskScore, positionSize, metadata } = prediction;
+    const { actionType, confidence, expectedReturn, riskScore, positionSize, metadata, volatility, turbulenceLevel, riskFactors, approved, rejectionReason } = prediction;
     const actionColor = actionType === 'LONG' ? 'text-green-400' : actionType === 'SHORT' ? 'text-red-400' : 'text-gray-400';
     const confidenceColor = confidence > 0.75 ? 'text-brand-success' : confidence > 0.5 ? 'text-yellow-400' : 'text-brand-danger';
     const returnColor = expectedReturn >= 0 ? 'text-brand-success' : 'text-brand-danger';
@@ -63,6 +63,16 @@ const ManualPredict: React.FC<ManualPredictProps> = ({ prediction, isLoading, on
       if (regime === 'sideways') return 'text-yellow-400';
       return 'text-brand-text';
     };
+
+    const getTurbulenceColor = (level?: string) => {
+      if (!level) return 'text-brand-text';
+      const lower = level.toLowerCase();
+      if (lower === 'normal') return 'text-green-400';
+      if (lower === 'elevated') return 'text-yellow-400';
+      if (lower === 'high') return 'text-orange-400';
+      if (lower === 'extreme') return 'text-red-400';
+      return 'text-brand-text';
+    };
     
     return (
         <div className="mt-4 space-y-2 animate-fade-in">
@@ -70,42 +80,60 @@ const ManualPredict: React.FC<ManualPredictProps> = ({ prediction, isLoading, on
             <div className="border-b-2 border-brand-primary pb-2 mb-2">
               <InfoRow label="Action" value={actionType} valueColor={actionColor} />
               <InfoRow label="Position Size" value={formatPercentage(positionSize)} />
-              {metadata?.domain_decision_approved !== undefined && (
+              {approved !== undefined && (
                 <InfoRow 
                   label="Decision Approved" 
-                  value={metadata.domain_decision_approved ? 'YES' : 'NO'} 
-                  valueColor={metadata.domain_decision_approved ? 'text-green-400' : 'text-red-400'} 
+                  value={approved ? 'YES' : 'NO'} 
+                  valueColor={approved ? 'text-green-400' : 'text-red-400'} 
                 />
               )}
-              {metadata?.rejection_reason && (
+              {rejectionReason && (
                 <div className="mt-1 p-2 bg-red-900/20 border border-red-500/30 rounded text-xs text-red-300">
-                  <strong>Rejected:</strong> {metadata.rejection_reason}
+                  <strong>Rejected:</strong> {rejectionReason}
                 </div>
               )}
             </div>
 
             {/* Model Confidence & Risk */}
             <InfoRow label="Confidence" value={formatPercentage(confidence)} valueColor={confidenceColor} />
-            <InfoRow label="Risk Score" value={riskScore.toFixed(2)} />
             <InfoRow label="Expected Return" value={formatPercentage(expectedReturn)} valueColor={returnColor} />
             {metadata?.kelly_fraction !== undefined && (
               <InfoRow label="Kelly Fraction" value={formatPercentage(metadata.kelly_fraction)} />
             )}
 
             {/* Market Context */}
-            {(metadata?.regime || metadata?.market_condition || metadata?.risk_level) && (
+            {(metadata?.regime || metadata?.market_condition || metadata?.risk_level || turbulenceLevel || volatility) && (
               <div className="border-t border-brand-secondary pt-2 mt-2">
-                {metadata.regime && (
+                {metadata?.regime && (
                   <InfoRow label="Regime" value={metadata.regime.toUpperCase()} valueColor={getRegimeColor(metadata.regime)} />
                 )}
-                {metadata.market_condition && (
+                {turbulenceLevel && (
+                  <InfoRow label="Turbulence" value={turbulenceLevel.toUpperCase()} valueColor={getTurbulenceColor(turbulenceLevel)} />
+                )}
+                {metadata?.market_condition && (
                   <InfoRow label="Market Condition" value={metadata.market_condition.replace(/_/g, ' ').toUpperCase()} />
                 )}
-                {metadata.risk_level && (
+                {metadata?.risk_level && (
                   <InfoRow label="Risk Level" value={metadata.risk_level.replace(/_/g, ' ').toUpperCase()} valueColor={getRiskLevelColor(metadata.risk_level)} />
                 )}
-                {metadata.volatility !== undefined && (
-                  <InfoRow label="Volatility" value={formatPercentage(metadata.volatility)} />
+                {volatility !== undefined && (
+                  <InfoRow label="Volatility" value={formatPercentage(volatility)} />
+                )}
+              </div>
+            )}
+
+            {/* Risk Factors */}
+            {riskFactors && (
+              <div className="border-t border-brand-secondary pt-2 mt-2">
+                <div className="text-xs font-semibold text-brand-text-secondary mb-1">Risk Factors:</div>
+                {riskFactors.volatility_regime && (
+                  <InfoRow label="Vol Regime" value={riskFactors.volatility_regime.toUpperCase()} />
+                )}
+                {riskFactors.trend_strength !== undefined && (
+                  <InfoRow label="Trend Strength" value={formatPercentage(riskFactors.trend_strength)} />
+                )}
+                {riskFactors.liquidity_score !== undefined && (
+                  <InfoRow label="Liquidity Score" value={formatPercentage(riskFactors.liquidity_score)} />
                 )}
               </div>
             )}
