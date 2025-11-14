@@ -76,6 +76,24 @@ export interface Prediction {
   confidence: number;
   expectedReturn: number;
   riskScore: number;
+  timestamp?: string;
+  metadata?: {
+    current_price?: number;
+    stop_loss?: number | null;
+    take_profit?: number | null;
+    target_2?: number | null;
+    risk_reward_ratio?: number;
+    risk_level?: string;
+    market_condition?: string;
+    volatility?: number;
+    risk_confidence?: number;
+    kelly_fraction?: number;
+    domain_decision_approved?: boolean;
+    rejection_reason?: string | null;
+    regime?: string;
+    symbol?: string;
+    model_version?: string;
+  };
 }
 
 export interface ModelState {
@@ -169,6 +187,24 @@ export interface ApiPrediction {
   confidence: number;
   expected_return: number;
   risk_score: number;
+  timestamp?: string;
+  metadata?: {
+    current_price?: number;
+    stop_loss?: number | null;
+    take_profit?: number | null;
+    target_2?: number | null;
+    risk_reward_ratio?: number;
+    risk_level?: string;
+    market_condition?: string;
+    volatility?: number;
+    risk_confidence?: number;
+    kelly_fraction?: number;
+    domain_decision_approved?: boolean;
+    rejection_reason?: string | null;
+    regime?: string;
+    symbol?: string;
+    model_version?: string;
+  };
 }
 
 export interface ApiModelState {

@@ -36,18 +36,100 @@ const ManualPredict: React.FC<ManualPredictProps> = ({ prediction, isLoading, on
       return <p className="text-sm text-center text-brand-text-secondary mt-4">Enter a symbol to get a prediction.</p>;
     }
 
-    const { actionType, confidence, expectedReturn, riskScore, positionSize } = prediction;
-    const actionColor = actionType.includes('BUY') ? 'text-green-400' : actionType.includes('SELL') ? 'text-red-400' : 'text-gray-400';
+    const { actionType, confidence, expectedReturn, riskScore, positionSize, metadata } = prediction;
+    const actionColor = actionType === 'LONG' ? 'text-green-400' : actionType === 'SHORT' ? 'text-red-400' : 'text-gray-400';
     const confidenceColor = confidence > 0.75 ? 'text-brand-success' : confidence > 0.5 ? 'text-yellow-400' : 'text-brand-danger';
     const returnColor = expectedReturn >= 0 ? 'text-brand-success' : 'text-brand-danger';
     
+    const formatCurrency = (value: number | null | undefined) => {
+      if (value === null || value === undefined) return 'N/A';
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    };
+
+    const getRiskLevelColor = (level?: string) => {
+      if (!level) return 'text-brand-text';
+      const lower = level.toLowerCase();
+      if (lower.includes('low')) return 'text-green-400';
+      if (lower.includes('moderate')) return 'text-yellow-400';
+      if (lower.includes('high')) return 'text-orange-400';
+      if (lower.includes('very_high')) return 'text-red-400';
+      return 'text-brand-text';
+    };
+
+    const getRegimeColor = (regime?: string) => {
+      if (!regime) return 'text-brand-text';
+      if (regime === 'bull') return 'text-green-400';
+      if (regime === 'bear') return 'text-red-400';
+      if (regime === 'sideways') return 'text-yellow-400';
+      return 'text-brand-text';
+    };
+    
     return (
         <div className="mt-4 space-y-2 animate-fade-in">
-            <InfoRow label="Action" value={actionType} valueColor={actionColor} />
+            {/* Core Decision */}
+            <div className="border-b-2 border-brand-primary pb-2 mb-2">
+              <InfoRow label="Action" value={actionType} valueColor={actionColor} />
+              <InfoRow label="Position Size" value={formatPercentage(positionSize)} />
+              {metadata?.domain_decision_approved !== undefined && (
+                <InfoRow 
+                  label="Decision Approved" 
+                  value={metadata.domain_decision_approved ? 'YES' : 'NO'} 
+                  valueColor={metadata.domain_decision_approved ? 'text-green-400' : 'text-red-400'} 
+                />
+              )}
+              {metadata?.rejection_reason && (
+                <div className="mt-1 p-2 bg-red-900/20 border border-red-500/30 rounded text-xs text-red-300">
+                  <strong>Rejected:</strong> {metadata.rejection_reason}
+                </div>
+              )}
+            </div>
+
+            {/* Model Confidence & Risk */}
             <InfoRow label="Confidence" value={formatPercentage(confidence)} valueColor={confidenceColor} />
-            <InfoRow label="Position Size" value={formatPercentage(positionSize)} />
-            <InfoRow label="Expected Return" value={formatPercentage(expectedReturn)} valueColor={returnColor} />
             <InfoRow label="Risk Score" value={riskScore.toFixed(2)} />
+            <InfoRow label="Expected Return" value={formatPercentage(expectedReturn)} valueColor={returnColor} />
+            {metadata?.kelly_fraction !== undefined && (
+              <InfoRow label="Kelly Fraction" value={formatPercentage(metadata.kelly_fraction)} />
+            )}
+
+            {/* Market Context */}
+            {(metadata?.regime || metadata?.market_condition || metadata?.risk_level) && (
+              <div className="border-t border-brand-secondary pt-2 mt-2">
+                {metadata.regime && (
+                  <InfoRow label="Regime" value={metadata.regime.toUpperCase()} valueColor={getRegimeColor(metadata.regime)} />
+                )}
+                {metadata.market_condition && (
+                  <InfoRow label="Market Condition" value={metadata.market_condition.replace(/_/g, ' ').toUpperCase()} />
+                )}
+                {metadata.risk_level && (
+                  <InfoRow label="Risk Level" value={metadata.risk_level.replace(/_/g, ' ').toUpperCase()} valueColor={getRiskLevelColor(metadata.risk_level)} />
+                )}
+                {metadata.volatility !== undefined && (
+                  <InfoRow label="Volatility" value={formatPercentage(metadata.volatility)} />
+                )}
+              </div>
+            )}
+
+            {/* Price Targets */}
+            {(metadata?.current_price || metadata?.stop_loss || metadata?.take_profit) && (
+              <div className="border-t border-brand-secondary pt-2 mt-2">
+                {metadata.current_price !== undefined && (
+                  <InfoRow label="Current Price" value={formatCurrency(metadata.current_price)} />
+                )}
+                {metadata.stop_loss && (
+                  <InfoRow label="Stop Loss" value={formatCurrency(metadata.stop_loss)} valueColor="text-red-400" />
+                )}
+                {metadata.take_profit && (
+                  <InfoRow label="Take Profit" value={formatCurrency(metadata.take_profit)} valueColor="text-green-400" />
+                )}
+                {metadata.target_2 && (
+                  <InfoRow label="Target 2" value={formatCurrency(metadata.target_2)} valueColor="text-green-300" />
+                )}
+                {metadata.risk_reward_ratio !== undefined && (
+                  <InfoRow label="Risk/Reward" value={metadata.risk_reward_ratio.toFixed(2)} />
+                )}
+              </div>
+            )}
         </div>
     );
   };

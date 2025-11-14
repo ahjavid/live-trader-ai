@@ -107,6 +107,8 @@ const mapApiToPrediction = (data: ApiPrediction): Prediction => ({
     confidence: data.confidence,
     expectedReturn: data.expected_return,
     riskScore: data.risk_score,
+    timestamp: data.timestamp,
+    metadata: data.metadata,
 });
 
 // Cache for the last status response to avoid duplicate API calls
